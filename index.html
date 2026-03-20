@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Type Attack</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+// ─── Constants & Config ───────────────────────────────────────────────────────
+const NEON = ['#00ffcc','#ff00ff','#ffff00','#00aaff','#ff6600','#ff3355','#aaff00'];
+const LETTER_FONT   = 'bold 32px "Courier New", monospace';
+const HUD_FONT      = 'bold 20px "Courier New", monospace';
+const MENU_FONT     = 'bold 48px "Courier New", monospace';
+const SUB_FONT      = 'bold 20px "Courier New", monospace';
+const BULLET_SPEED  = 600;
+const HIT_RADIUS    = 18;
+const GROUND_OFFSET = 20;
+const PARTICLE_COUNT = 20;
+
+// ─── Canvas Setup ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width  = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let state;
+
+function createState() {
+  return {
+    phase:          'menu',
+    score:          0,
+    lives:          3,
+    bombs:          0,
+    bombThreshold:  20,
+    elapsed:        0,
+    spawnTimer:     0,
+    screenFlash:    0,
+    bombFlash:      0,
+    letters:        [],
+    bullets:        [],
+    particles:      [],
+    neonIdx:        0,
+    nextId:         0,
+    stars:          buildStars(),
+    turret:         { x: 0, y: 0, angle: -Math.PI / 2, barrelLength: 28 },
+  };
+}
+
+function buildStars() {
+  const stars = [];
+  for (let i = 0; i < 100; i++) {
+    stars.push({
+      x: Math.random(),
+      y: Math.random(),
+      r: Math.random() * 1.5 + 0.3,
+      a: Math.random() * 0.6 + 0.2,
+    });
+  }
+  return stars;
+}
+
+// ─── Game State Management ────────────────────────────────────────────────────
+function startGame() {
+  state        = createState();
+  state.phase  = 'playing';
+}
+
+function showMenu() {
+  state        = createState();
+  state.phase  = 'menu';
+}
+
+function endGame() {
+  state.phase = 'gameover';
+}
+
+// ─── Spawning ─────────────────────────────────────────────────────────────────
+function spawnInterval(t) { return Math.max(0.6, 2.5 - t * 0.02); }
+function letterSpeed(t)   { return 30 + t * 1.5; }
+
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function spawnLetter() {
+  const margin = 40;
+  const char   = ALPHABET[Math.floor(Math.random() * 26)];
+  const color  = NEON[state.neonIdx % NEON.length];
+  state.neonIdx++;
+
+  state.letters.push({
+    id:         state.nextId++,
+    char,
+    x:          margin + Math.random() * (canvas.width - margin * 2),
+    y:          -30,
+    speed:      letterSpeed(state.elapsed),
+    color,
+    isTargeted: false,
+    isDead:     false,
+    scale:      0.5,
+    scaleTimer: 0,
+  });
+}
+
+// ─── Input ────────────────────────────────────────────────────────────────────
+window.addEventListener('keydown', (e) => {
+  if (e.repeat) return;
+
+  if (state.phase === 'menu' && e.key === 'Enter') {
+    startGame();
+    return;
+  }
+  if (state.phase === 'gameover' && e.key === 'Enter') {
+    showMenu();
+    return;
+  }
+  if (state.phase !== 'playing') return;
+
+  // Smart bomb
+  if (e.key === ' ') {
+    e.preventDefault();
+    detonateBomb();
+    return;
+  }
+
+  const key = e.key.toUpperCase();
+  if (key.length !== 1 || !ALPHABET.includes(key)) return;
+
+  const matches = state.letters.filter(l => !l.isDead && l.char === key);
+  if (matches.length === 0) return;
+
+  matches.forEach(letter => {
+    letter.isTargeted = true;
+    state.bullets.push({
+      id:           state.nextId++,
+      x:            state.turret.x,
+      y:            state.turret.y,
+      targetLetterId: letter.id,
+      speed:        BULLET_SPEED,
+      trail:        [],
+      isDead:       false,
+    });
+  });
+
+  // Aim turret at last match
+  const last = matches[matches.length - 1];
+  state.turret.angle = Math.atan2(last.y - state.turret.y, last.x - state.turret.x);
+});
+
+// ─── Loselife ─────────────────────────────────────────────────────────────────
+function loseLife() {
+  state.lives--;
+  state.screenFlash = 0.4;
+  if (state.lives <= 0) {
+    state.lives = 0;
+    endGame();
+  } else {
+    // Clear all letters so they respawn fresh from the top
+    state.letters = [];
+  }
+}
+
+// ─── Smart Bomb ───────────────────────────────────────────────────────────────
+function detonateBomb() {
+  if (state.bombs <= 0) return;
+  state.bombs--;
+  state.bombFlash = 0.4;
+
+  // Destroy every letter on screen with big explosions
+  state.letters.forEach(letter => {
+    if (!letter.isDead) {
+      spawnExplosion(letter.x, letter.y, letter.color, true);
+      letter.isDead = true;
+    }
+  });
+
+  // Kill all in-flight bullets
+  state.bullets.forEach(b => { b.isDead = true; });
+}
+
+// ─── Explosions ───────────────────────────────────────────────────────────────
+function spawnExplosion(x, y, color, big = false) {
+  const count     = big ? 36 : PARTICLE_COUNT;
+  const speedMin  = big ? 120 : 60;
+  const speedMax  = big ? 300 : 120;
+  const sizeBase  = big ? 4 : 2;
+
+  // Flash particle
+  state.particles.push({
+    x, y, vx: 0, vy: 0, life: 0.2, maxLife: 0.2,
+    size: big ? 40 : 24, color: '#ffffff', isDead: false, isFlash: true,
+  });
+
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + Math.random() * 0.3;
+    const speed = speedMin + Math.random() * (speedMax - speedMin);
+    state.particles.push({
+      x, y,
+      vx:      Math.cos(angle) * speed,
+      vy:      Math.sin(angle) * speed,
+      life:    0.5 + Math.random() * 0.4,
+      maxLife: 0.9,
+      size:    sizeBase + Math.random() * 4,
+      color,
+      isDead:  false,
+      isFlash: false,
+    });
+  }
+}
+
+// ─── Update ───────────────────────────────────────────────────────────────────
+function update(dt) {
+  if (state.phase !== 'playing') return;
+
+  state.elapsed    += dt;
+  state.screenFlash = Math.max(0, state.screenFlash - dt);
+  state.bombFlash   = Math.max(0, state.bombFlash - dt);
+
+  // Turret position: center bottom, above ground
+  state.turret.x = canvas.width / 2;
+  state.turret.y = canvas.height - GROUND_OFFSET - 18;
+
+  // Spawn letters
+  state.spawnTimer -= dt;
+  if (state.spawnTimer <= 0) {
+    spawnLetter();
+    state.spawnTimer = spawnInterval(state.elapsed);
+  }
+
+  // Update letters
+  state.letters.forEach(letter => {
+    if (letter.isDead) return;
+
+    // Pop-in scale
+    if (letter.scale < 1.0) {
+      letter.scaleTimer += dt;
+      letter.scale = Math.min(1.0, 0.5 + (letter.scaleTimer / 0.15) * 0.5);
+    }
+
+    letter.y += letter.speed * dt;
+
+    // Reached ground?
+    if (letter.y >= canvas.height - GROUND_OFFSET) {
+      letter.isDead = true;
+      loseLife();
+    }
+  });
+
+  // Update bullets
+  state.bullets.forEach(bullet => {
+    if (bullet.isDead) return;
+
+    const target = state.letters.find(l => l.id === bullet.targetLetterId);
+    if (!target || target.isDead) {
+      bullet.isDead = true;
+      return;
+    }
+
+    const dx   = target.x - bullet.x;
+    const dy   = target.y - bullet.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < HIT_RADIUS) {
+      // Hit!
+      spawnExplosion(target.x, target.y, target.color);
+      target.isDead  = true;
+      bullet.isDead  = true;
+      state.score++;
+      if (state.score >= state.bombThreshold) {
+        state.bombs++;
+        state.bombThreshold += 20;
+      }
+    } else {
+      const nx = dx / dist;
+      const ny = dy / dist;
+      bullet.trail.unshift({ x: bullet.x, y: bullet.y });
+      if (bullet.trail.length > 8) bullet.trail.pop();
+      bullet.x += nx * bullet.speed * dt;
+      bullet.y += ny * bullet.speed * dt;
+    }
+  });
+
+  // Update particles
+  state.particles.forEach(p => {
+    if (p.isDead) return;
+    p.life -= dt;
+    if (p.life <= 0) { p.isDead = true; return; }
+    if (!p.isFlash) {
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.vy += 60 * dt;
+      p.vx *= 0.98;
+    }
+  });
+
+  // Prune dead entities
+  state.letters   = state.letters.filter(l => !l.isDead);
+  state.bullets   = state.bullets.filter(b => !b.isDead);
+  state.particles = state.particles.filter(p => !p.isDead);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const W = canvas.width;
+  const H = canvas.height;
+
+  // 1. Clear
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  // 2. Starfield
+  state.stars.forEach(s => {
+    ctx.globalAlpha = s.a;
+    ctx.fillStyle   = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // 3. Ground line
+  ctx.strokeStyle   = '#00ffcc';
+  ctx.lineWidth     = 1.5;
+  ctx.shadowColor   = '#00ffcc';
+  ctx.shadowBlur    = 6;
+  ctx.beginPath();
+  ctx.moveTo(0, H - GROUND_OFFSET);
+  ctx.lineTo(W, H - GROUND_OFFSET);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // 4. Bomb flash (rendered before letters/particles so explosions show on top)
+  if (state.bombFlash > 0) {
+    const alpha = (state.bombFlash / 0.4) * 0.5;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = '#ffffff';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
+  // 5. Letters
+  ctx.font         = LETTER_FONT;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  state.letters.forEach(letter => {
+    ctx.save();
+    ctx.translate(letter.x, letter.y);
+    ctx.scale(letter.scale, letter.scale);
+    ctx.shadowColor = letter.color;
+    ctx.shadowBlur  = letter.isTargeted ? 24 : 12;
+    ctx.fillStyle   = letter.color;
+    ctx.fillText(letter.char, 0, 0);
+    ctx.shadowBlur  = 0;
+    ctx.restore();
+  });
+
+  // 5. Bullets + trails
+  state.bullets.forEach(bullet => {
+    // Trail
+    bullet.trail.forEach((pt, i) => {
+      const alpha = (1 - i / bullet.trail.length) * 0.5;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle   = '#ffffaa';
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    // Bullet
+    ctx.shadowColor = '#ffff00';
+    ctx.shadowBlur  = 10;
+    ctx.fillStyle   = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(bullet.x, bullet.y, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur  = 0;
+  });
+
+  // 6. Particles
+  state.particles.forEach(p => {
+    const frac = p.life / p.maxLife;
+    ctx.globalAlpha = p.isFlash ? frac : frac * 0.9;
+    ctx.fillStyle   = p.color;
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur  = p.isFlash ? 20 : 4;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.isFlash ? p.size * frac : p.size * frac, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur  = 0;
+
+  // 7. Turret
+  if (state.phase === 'playing' || state.phase === 'gameover') {
+    const t = state.turret;
+    ctx.save();
+    ctx.translate(t.x, t.y);
+
+    // Base
+    ctx.shadowColor = '#00ffcc';
+    ctx.shadowBlur  = 10;
+    ctx.fillStyle   = '#00ffcc';
+    ctx.beginPath();
+    ctx.arc(0, 0, 12, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Barrel
+    ctx.rotate(t.angle);
+    ctx.strokeStyle = '#00ffcc';
+    ctx.lineWidth   = 4;
+    ctx.lineCap     = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(t.barrelLength, 0);
+    ctx.stroke();
+
+    ctx.shadowBlur = 0;
+    ctx.restore();
+  }
+
+  // 8. HUD
+  renderHUD(W, H);
+
+  // Screen flash overlay (life lost)
+  if (state.screenFlash > 0) {
+    const alpha = (state.screenFlash / 0.4) * 0.35;
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle   = '#ff0000';
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
+
+  // 9. Phase overlays
+  if (state.phase === 'menu')     renderMenu(W, H);
+  if (state.phase === 'gameover') renderGameOver(W, H);
+}
+
+function renderHUD(W, H) {
+  ctx.font      = HUD_FONT;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  // Score
+  ctx.shadowColor = '#ffff00';
+  ctx.shadowBlur  = 8;
+  ctx.fillStyle   = '#ffff00';
+  ctx.fillText(`SCORE: ${state.score}`, 16, 16);
+  ctx.shadowBlur  = 0;
+
+  // Lives (hearts)
+  const totalLives = 3;
+  let heartX = W - 16;
+  for (let i = totalLives - 1; i >= 0; i--) {
+    const alive = i < state.lives;
+    ctx.textAlign    = 'right';
+    ctx.textBaseline = 'top';
+    ctx.shadowColor  = alive ? '#ff3355' : '#333333';
+    ctx.shadowBlur   = alive ? 8 : 0;
+    ctx.fillStyle    = alive ? '#ff3355' : '#333333';
+    ctx.fillText('♥', heartX, 14);
+    heartX -= 28;
+  }
+  ctx.shadowBlur = 0;
+
+  // Bombs (aerial drop bomb: long cylinder, sharp nose down, wide swept tail fins)
+  const bombSpacing = 36;
+  let bombX = W - 22;
+  for (let i = 0; i < state.bombs; i++) {
+    ctx.save();
+    ctx.translate(bombX, 60);
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = '#ff6600';
+    // Long cylindrical body with rounded tail dome (top) and tapered nose (bottom)
+    ctx.beginPath();
+    ctx.moveTo(0, 17);         // nose tip
+    ctx.lineTo(6, 8);          // right nose shoulder
+    ctx.lineTo(6, -10);        // right cylinder wall (long straight section)
+    ctx.arc(0, -10, 6, 0, Math.PI, true); // rounded tail dome
+    ctx.lineTo(-6, 8);         // left cylinder wall
+    ctx.closePath();
+    ctx.fill();
+    // Nose accent — bright tip to emphasise the point
+    ctx.shadowColor = '#ffdd88';
+    ctx.shadowBlur  = 8;
+    ctx.fillStyle   = '#ffdd88';
+    ctx.beginPath();
+    ctx.moveTo(0, 17);
+    ctx.lineTo(4, 10);
+    ctx.lineTo(-4, 10);
+    ctx.closePath();
+    ctx.fill();
+    // Left swept tail fin — wide outward spread makes shape unmistakable
+    ctx.shadowColor = '#ff6600';
+    ctx.shadowBlur  = 12;
+    ctx.fillStyle   = '#ff6600';
+    ctx.beginPath();
+    ctx.moveTo(-6,  -6);
+    ctx.lineTo(-18, -18);
+    ctx.lineTo(-6,  -13);
+    ctx.closePath();
+    ctx.fill();
+    // Right swept tail fin
+    ctx.beginPath();
+    ctx.moveTo(6,  -6);
+    ctx.lineTo(18, -18);
+    ctx.lineTo(6,  -13);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    bombX -= bombSpacing;
+  }
+  ctx.shadowBlur = 0;
+}
+
+function renderMenu(W, H) {
+  // Dim overlay
+  ctx.fillStyle   = 'rgba(0,0,0,0.55)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+
+  // Title
+  ctx.font        = MENU_FONT;
+  ctx.shadowColor = '#00ffcc';
+  ctx.shadowBlur  = 20;
+  ctx.fillStyle   = '#00ffcc';
+  ctx.fillText('TYPE ATTACK', W / 2, H / 2 - 60);
+
+  // Subtitle
+  ctx.font        = SUB_FONT;
+  ctx.shadowColor = '#ffff00';
+  ctx.shadowBlur  = 10;
+  ctx.fillStyle   = '#ffff00';
+  ctx.fillText('Type letters to destroy them before they land!', W / 2, H / 2 + 10);
+
+  // Bomb hint
+  ctx.shadowColor = '#00ffcc';
+  ctx.shadowBlur  = 8;
+  ctx.fillStyle   = '#00ffcc';
+  ctx.fillText('SPACE = Smart Bomb  •  Earn one every 20 points', W / 2, H / 2 + 40);
+
+  // Press Enter
+  ctx.shadowColor = '#ff00ff';
+  ctx.shadowBlur  = 12;
+  ctx.fillStyle   = '#ff00ff';
+  ctx.fillText('PRESS ENTER TO START', W / 2, H / 2 + 75);
+
+  ctx.shadowBlur = 0;
+}
+
+function renderGameOver(W, H) {
+  ctx.fillStyle   = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+
+  ctx.font        = MENU_FONT;
+  ctx.shadowColor = '#ff3355';
+  ctx.shadowBlur  = 20;
+  ctx.fillStyle   = '#ff3355';
+  ctx.fillText('GAME OVER', W / 2, H / 2 - 50);
+
+  ctx.font        = HUD_FONT;
+  ctx.shadowColor = '#ffff00';
+  ctx.shadowBlur  = 8;
+  ctx.fillStyle   = '#ffff00';
+  ctx.fillText(`FINAL SCORE: ${state.score}`, W / 2, H / 2 + 10);
+
+  ctx.font        = SUB_FONT;
+  ctx.shadowColor = '#ff00ff';
+  ctx.shadowBlur  = 12;
+  ctx.fillStyle   = '#ff00ff';
+  ctx.fillText('PRESS ENTER TO PLAY AGAIN', W / 2, H / 2 + 55);
+
+  ctx.shadowBlur = 0;
+}
+
+// ─── Game Loop ─────────────────────────────────────────────────────────────────
+let lastTime = null;
+
+function loop(ts) {
+  if (lastTime === null) lastTime = ts;
+  const dt = Math.min((ts - lastTime) / 1000, 0.1);
+  lastTime = ts;
+
+  update(dt);
+  render();
+
+  requestAnimationFrame(loop);
+}
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+state = createState();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
