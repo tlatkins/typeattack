@@ -477,15 +477,15 @@ function render() {
 }
 
 function renderHUD(W, H) {
-  ctx.font      = HUD_FONT;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
+  ctx.font         = HUD_FONT;
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'hanging';
 
   // Score
   ctx.shadowColor = '#ffff00';
   ctx.shadowBlur  = 8;
   ctx.fillStyle   = '#ffff00';
-  ctx.fillText(`${state.score}`, 16, 6);
+  ctx.fillText(`${state.score}`, 16, 4);
   ctx.shadowBlur  = 0;
 
   // Lives (hearts)
@@ -495,11 +495,11 @@ function renderHUD(W, H) {
   for (let i = totalLives - 1; i >= 0; i--) {
     const alive = i < state.lives;
     ctx.textAlign    = 'right';
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'hanging';
     ctx.shadowColor  = alive ? '#ff3355' : '#333333';
     ctx.shadowBlur   = alive ? 16 : 0;
     ctx.fillStyle    = alive ? '#ff3355' : '#333333';
-    ctx.fillText('♥', heartX, 2);
+    ctx.fillText('♥', heartX, 4);
     heartX -= 52;
   }
   ctx.shadowBlur = 0;
