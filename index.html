@@ -21,7 +21,7 @@ const MENU_FONT     = 'bold 48px "Courier New", monospace';
 const SUB_FONT      = 'bold 20px "Courier New", monospace';
 const BULLET_SPEED  = 600;
 const HIT_RADIUS    = 18;
-const GROUND_OFFSET = 20;
+const GROUND_OFFSET = 90;
 const PARTICLE_COUNT = 20;
 
 // ─── Canvas Setup ─────────────────────────────────────────────────────────────
@@ -329,14 +329,40 @@ function render() {
   });
   ctx.globalAlpha = 1;
 
-  // 3. Ground line
-  ctx.strokeStyle   = '#00ffcc';
-  ctx.lineWidth     = 1.5;
-  ctx.shadowColor   = '#00ffcc';
-  ctx.shadowBlur    = 6;
+  // 3. Mountain terrain
+  const groundY = H - GROUND_OFFSET;
+  const cx = W / 2;
+  ctx.fillStyle   = '#071510';
+  ctx.strokeStyle = '#00ffcc';
+  ctx.lineWidth   = 1.5;
+  ctx.shadowColor = '#00ffcc';
+  ctx.shadowBlur  = 6;
   ctx.beginPath();
-  ctx.moveTo(0, H - GROUND_OFFSET);
-  ctx.lineTo(W, H - GROUND_OFFSET);
+  ctx.moveTo(0, H);
+  ctx.lineTo(0,         groundY + 22);
+  ctx.lineTo(W * 0.05,  groundY + 10);
+  ctx.lineTo(W * 0.10,  groundY + 30);
+  ctx.lineTo(W * 0.17,  groundY);
+  ctx.lineTo(W * 0.23,  groundY - 14);
+  ctx.lineTo(W * 0.29,  groundY + 6);
+  ctx.lineTo(W * 0.35,  groundY - 6);
+  ctx.lineTo(W * 0.41,  groundY + 10);
+  ctx.lineTo(W * 0.46,  groundY + 3);
+  ctx.lineTo(cx - 26,   groundY + 10);
+  ctx.lineTo(cx,        groundY - 18);  // centre peak — turret sits here
+  ctx.lineTo(cx + 26,   groundY + 10);
+  ctx.lineTo(W * 0.54,  groundY + 3);
+  ctx.lineTo(W * 0.59,  groundY + 10);
+  ctx.lineTo(W * 0.65,  groundY - 6);
+  ctx.lineTo(W * 0.71,  groundY + 6);
+  ctx.lineTo(W * 0.77,  groundY - 14);
+  ctx.lineTo(W * 0.83,  groundY);
+  ctx.lineTo(W * 0.90,  groundY + 30);
+  ctx.lineTo(W * 0.95,  groundY + 10);
+  ctx.lineTo(W,         groundY + 22);
+  ctx.lineTo(W, H);
+  ctx.closePath();
+  ctx.fill();
   ctx.stroke();
   ctx.shadowBlur = 0;
 
@@ -456,7 +482,7 @@ function renderHUD(W, H) {
   ctx.shadowColor = '#ffff00';
   ctx.shadowBlur  = 8;
   ctx.fillStyle   = '#ffff00';
-  ctx.fillText(`${state.score}`, 16, 16);
+  ctx.fillText(`${state.score}`, 16, 6);
   ctx.shadowBlur  = 0;
 
   // Lives (hearts)
@@ -470,7 +496,7 @@ function renderHUD(W, H) {
     ctx.shadowColor  = alive ? '#ff3355' : '#333333';
     ctx.shadowBlur   = alive ? 16 : 0;
     ctx.fillStyle    = alive ? '#ff3355' : '#333333';
-    ctx.fillText('♥', heartX, 8);
+    ctx.fillText('♥', heartX, 2);
     heartX -= 52;
   }
   ctx.shadowBlur = 0;
