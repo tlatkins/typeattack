@@ -16,7 +16,7 @@
 // ─── Constants & Config ───────────────────────────────────────────────────────
 const NEON = ['#00ffcc','#ff00ff','#ffff00','#00aaff','#ff6600','#ff3355','#aaff00'];
 const LETTER_FONT   = 'bold 32px "Courier New", monospace';
-const HUD_FONT      = 'bold 20px "Courier New", monospace';
+const HUD_FONT      = 'bold 36px "Courier New", monospace';
 const MENU_FONT     = 'bold 48px "Courier New", monospace';
 const SUB_FONT      = 'bold 20px "Courier New", monospace';
 const BULLET_SPEED  = 600;
@@ -456,30 +456,32 @@ function renderHUD(W, H) {
   ctx.shadowColor = '#ffff00';
   ctx.shadowBlur  = 8;
   ctx.fillStyle   = '#ffff00';
-  ctx.fillText(`SCORE: ${state.score}`, 16, 16);
+  ctx.fillText(`${state.score}`, 16, 16);
   ctx.shadowBlur  = 0;
 
   // Lives (hearts)
   const totalLives = 3;
+  ctx.font = 'bold 48px "Courier New", monospace';
   let heartX = W - 16;
   for (let i = totalLives - 1; i >= 0; i--) {
     const alive = i < state.lives;
     ctx.textAlign    = 'right';
     ctx.textBaseline = 'top';
     ctx.shadowColor  = alive ? '#ff3355' : '#333333';
-    ctx.shadowBlur   = alive ? 8 : 0;
+    ctx.shadowBlur   = alive ? 16 : 0;
     ctx.fillStyle    = alive ? '#ff3355' : '#333333';
-    ctx.fillText('♥', heartX, 14);
-    heartX -= 28;
+    ctx.fillText('♥', heartX, 8);
+    heartX -= 52;
   }
   ctx.shadowBlur = 0;
 
   // Bombs (aerial drop bomb: long cylinder, sharp nose down, wide swept tail fins)
-  const bombSpacing = 36;
-  let bombX = W - 22;
+  const bombSpacing = 54;
+  let bombX = W - 30;
   for (let i = 0; i < state.bombs; i++) {
     ctx.save();
-    ctx.translate(bombX, 60);
+    ctx.translate(bombX, 76);
+    ctx.scale(1.5, 1.5);
     ctx.shadowColor = '#ff6600';
     ctx.shadowBlur  = 12;
     ctx.fillStyle   = '#ff6600';
