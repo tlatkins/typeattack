@@ -491,7 +491,7 @@ function renderHUD(W, H) {
   ctx.shadowColor = '#ffff00';
   ctx.shadowBlur  = 8;
   ctx.fillStyle   = '#ffff00';
-  ctx.fillText(`${state.score}`, 16, 4);
+  ctx.fillText(String(state.score).padStart(4, '0'), 16, 4);
   ctx.shadowBlur  = 0;
 
   // Lives (hearts)
