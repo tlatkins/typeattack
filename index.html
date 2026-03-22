@@ -89,7 +89,11 @@ function endGame() {
 
 // ─── Spawning ─────────────────────────────────────────────────────────────────
 function spawnInterval(t) { return Math.max(0.6, 2.5 - t * 0.02); }
-function letterSpeed(t)   { return 30 + t * 1.5; }
+function letterSpeed(t) {
+  const base = 30 + t * 1.5;
+  const spread = 10 + t * 0.8;
+  return base + (Math.random() * 2 - 1) * spread;
+}
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
@@ -227,9 +231,9 @@ function update(dt) {
   state.screenFlash = Math.max(0, state.screenFlash - dt);
   state.bombFlash   = Math.max(0, state.bombFlash - dt);
 
-  // Turret position: center bottom, above ground
+  // Turret position: sits on the flat shelf at ~50% x
   state.turret.x = canvas.width / 2;
-  state.turret.y = canvas.height - GROUND_OFFSET - 18;
+  state.turret.y = canvas.height - GROUND_OFFSET + 2 - 18;
 
   // Spawn letters
   state.spawnTimer -= dt;
@@ -331,7 +335,6 @@ function render() {
 
   // 3. Mountain terrain
   const groundY = H - GROUND_OFFSET;
-  const cx = W / 2;
   ctx.fillStyle   = '#071510';
   ctx.strokeStyle = '#00ffcc';
   ctx.lineWidth   = 1.5;
@@ -339,27 +342,27 @@ function render() {
   ctx.shadowBlur  = 6;
   ctx.beginPath();
   ctx.moveTo(0, H);
-  ctx.lineTo(0,         groundY + 22);
-  ctx.lineTo(W * 0.05,  groundY + 10);
-  ctx.lineTo(W * 0.10,  groundY + 30);
-  ctx.lineTo(W * 0.17,  groundY);
-  ctx.lineTo(W * 0.23,  groundY - 14);
-  ctx.lineTo(W * 0.29,  groundY + 6);
-  ctx.lineTo(W * 0.35,  groundY - 6);
-  ctx.lineTo(W * 0.41,  groundY + 10);
-  ctx.lineTo(W * 0.46,  groundY + 3);
-  ctx.lineTo(cx - 26,   groundY + 10);
-  ctx.lineTo(cx,        groundY - 18);  // centre peak — turret sits here
-  ctx.lineTo(cx + 26,   groundY + 10);
-  ctx.lineTo(W * 0.54,  groundY + 3);
-  ctx.lineTo(W * 0.59,  groundY + 10);
-  ctx.lineTo(W * 0.65,  groundY - 6);
-  ctx.lineTo(W * 0.71,  groundY + 6);
-  ctx.lineTo(W * 0.77,  groundY - 14);
-  ctx.lineTo(W * 0.83,  groundY);
-  ctx.lineTo(W * 0.90,  groundY + 30);
-  ctx.lineTo(W * 0.95,  groundY + 10);
-  ctx.lineTo(W,         groundY + 22);
+  ctx.lineTo(0,         groundY + 18);
+  ctx.lineTo(W * 0.04,  groundY + 5);
+  ctx.lineTo(W * 0.09,  groundY - 22);   // tall left peak
+  ctx.lineTo(W * 0.13,  groundY + 8);
+  ctx.lineTo(W * 0.19,  groundY + 20);
+  ctx.lineTo(W * 0.25,  groundY - 8);
+  ctx.lineTo(W * 0.30,  groundY + 4);
+  ctx.lineTo(W * 0.36,  groundY - 30);   // sharp mid-left peak
+  ctx.lineTo(W * 0.40,  groundY + 12);
+  ctx.lineTo(W * 0.45,  groundY + 6);
+  ctx.lineTo(W * 0.50,  groundY + 2);    // flat shelf — turret lives here
+  ctx.lineTo(W * 0.56,  groundY + 4);
+  ctx.lineTo(W * 0.61,  groundY + 16);
+  ctx.lineTo(W * 0.66,  groundY - 18);   // right-of-centre peak
+  ctx.lineTo(W * 0.70,  groundY + 6);
+  ctx.lineTo(W * 0.74,  groundY - 6);
+  ctx.lineTo(W * 0.80,  groundY - 38);   // dominant right peak
+  ctx.lineTo(W * 0.85,  groundY + 10);
+  ctx.lineTo(W * 0.90,  groundY + 22);
+  ctx.lineTo(W * 0.94,  groundY + 8);
+  ctx.lineTo(W,         groundY + 14);
   ctx.lineTo(W, H);
   ctx.closePath();
   ctx.fill();
@@ -474,15 +477,15 @@ function render() {
 }
 
 function renderHUD(W, H) {
-  ctx.font      = HUD_FONT;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
+  ctx.font         = HUD_FONT;
+  ctx.textAlign    = 'left';
+  ctx.textBaseline = 'hanging';
 
   // Score
   ctx.shadowColor = '#ffff00';
   ctx.shadowBlur  = 8;
   ctx.fillStyle   = '#ffff00';
-  ctx.fillText(`${state.score}`, 16, 6);
+  ctx.fillText(`${state.score}`, 16, 4);
   ctx.shadowBlur  = 0;
 
   // Lives (hearts)
@@ -492,11 +495,11 @@ function renderHUD(W, H) {
   for (let i = totalLives - 1; i >= 0; i--) {
     const alive = i < state.lives;
     ctx.textAlign    = 'right';
-    ctx.textBaseline = 'top';
+    ctx.textBaseline = 'hanging';
     ctx.shadowColor  = alive ? '#ff3355' : '#333333';
     ctx.shadowBlur   = alive ? 16 : 0;
     ctx.fillStyle    = alive ? '#ff3355' : '#333333';
-    ctx.fillText('♥', heartX, 2);
+    ctx.fillText('♥', heartX, 4);
     heartX -= 52;
   }
   ctx.shadowBlur = 0;
