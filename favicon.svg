@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="8" fill="#000"/>
+  <!-- Trailing ghost copies (falling motion) -->
+  <text x="32" y="20" text-anchor="middle" dominant-baseline="central"
+        font-family="'Courier New',monospace" font-weight="bold" font-size="36"
+        fill="#00ffcc" opacity="0.15">T</text>
+  <text x="32" y="28" text-anchor="middle" dominant-baseline="central"
+        font-family="'Courier New',monospace" font-weight="bold" font-size="36"
+        fill="#00ffcc" opacity="0.3">T</text>
+  <!-- Main T with glow -->
+  <text x="32" y="38" text-anchor="middle" dominant-baseline="central"
+        font-family="'Courier New',monospace" font-weight="bold" font-size="36"
+        fill="#00ffcc" filter="url(#glow)">T</text>
+  <defs>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+</svg>
