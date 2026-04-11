@@ -1,23 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="8" fill="#000"/>
-  <!-- Trailing ghost copies (falling motion) -->
-  <text x="32" y="20" text-anchor="middle" dominant-baseline="central"
-        font-family="'Courier New',monospace" font-weight="bold" font-size="36"
-        fill="#00ffcc" opacity="0.15">T</text>
-  <text x="32" y="28" text-anchor="middle" dominant-baseline="central"
-        font-family="'Courier New',monospace" font-weight="bold" font-size="36"
-        fill="#00ffcc" opacity="0.3">T</text>
-  <!-- Main T with glow -->
-  <text x="32" y="38" text-anchor="middle" dominant-baseline="central"
-        font-family="'Courier New',monospace" font-weight="bold" font-size="36"
-        fill="#00ffcc" filter="url(#glow)">T</text>
+  <!-- Speed lines above T -->
   <defs>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
-    </filter>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#00ffcc" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#00ffcc" stop-opacity="0.85"/>
+    </linearGradient>
   </defs>
+  <g stroke="url(#fade)" stroke-width="1.5" stroke-linecap="round">
+    <line x1="25" y1="8"  x2="25" y2="22"/>
+    <line x1="32" y1="6"  x2="32" y2="22"/>
+    <line x1="39" y1="8"  x2="39" y2="22"/>
+  </g>
+  <!-- T in Courier New Bold -->
+  <text x="32" y="44" text-anchor="middle" dominant-baseline="central"
+        font-family="'Courier New', 'Courier', monospace" font-weight="bold" font-size="44"
+        fill="#00ffcc">T</text>
 </svg>
